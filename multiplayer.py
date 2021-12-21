@@ -69,9 +69,11 @@ class Master:
         self.status = 'started'
         self.last_ping_time = None
         self.buttons = []
+        self.top_label = None
+        self.message_entry = None
+        self.send_button = None
         self.hide_button = None
         self.main_client = None
-        self.top_label = None
 
         self.root = tkinter.Tk()
         self.root.geometry('400x400')
@@ -86,7 +88,7 @@ class Master:
         self.name_field = tkinter.Entry(self.left_half, justify=tkinter.CENTER)
         self.name_field.place(x=10, y=10, width=180)
         self.name_button = tkinter.Button(self.left_half, text='Reveal myself\nusing this name', command=self.reveal)
-        self.name_button.place(x=50, y=40, width=100, height=30)
+        self.name_button.place(x=40, y=40, width=120, height=50)
         self.root.bind('<Return>', lambda event: self.reveal())
 
         self.output_text = tkinter.Text(self.right_half, bg='black', fg='red')
@@ -174,6 +176,12 @@ class Master:
         for but in self.buttons:
             but.destroy()
         self.buttons = []
+        self.message_entry = tkinter.Entry(self.left_half)
+        self.message_entry.place(x=10, y=100, width=180)
+        self.send_button = tkinter.Button(self.left_half, text='Send', command=self.send_message)
+        self.send_button.place(x=10, y=130, width=180)
+        self.root.bind('<Return>', lambda event: self.send_message())
+
         self.top_label.config(text='Connected with\n' + enemy_name)
         self.hide_button.config(text='Disconnect')
 
@@ -193,13 +201,15 @@ class Master:
     def on_waiting_message(self, client, data, message):
         msg = json.loads(str(message.payload.decode("utf-8")))
 
-        if msg['type'] == 'ping':
-            if msg['client'] == self.main_client.enemy_name:
-                self.last_ping_time = msg['ts']
-            return
-        if msg['type'] == 'send':
-            self._print(time.ctime(msg['ts']).split()[3], msg['data'])
+        if msg['type'] == 'ping' and msg['client'] == self.main_client.enemy_name:
+            self.last_ping_time = msg['ts']
+        if msg['type'] == 'send' and msg['client'] != self.main_client.name:
+            self._print(time.ctime(msg['ts']).split()[3] + ' ' + msg['client'], msg['data'])
             self.main_client.message_stack.append(msg)
+
+    def send_message(self):
+        self.main_client.post(self.main_client.game_topic, 'send', self.message_entry.get())
+        self.message_entry.delete(0, tkinter.END)
 
     def _print(self, *args, sep='\n'):
         output_string = ''
