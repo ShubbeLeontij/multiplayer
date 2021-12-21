@@ -169,8 +169,9 @@ class Master:
     def on_searching_message(self, client, data, message):
         msg = json.loads(str(message.payload.decode("utf-8")))
 
-        if msg['type'] == 'ping' and self.status == 'waiting' and msg['client'] == self.searching_client.enemy_name:
-            self.last_ping_time = msg['ts']
+        if msg['type'] == 'ping' and self.status == 'waiting':
+            if msg['client'] == self.searching_client.enemy_name:
+                self.last_ping_time = msg['ts']
             return
 
         self._print(msg['data'])
