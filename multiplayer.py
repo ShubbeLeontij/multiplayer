@@ -169,11 +169,15 @@ class Master:
             self.searching_client.create_connection(enemy_name)
 
         self.status = 'waiting'
+        self.last_ping_time = time.time()
         for but in self.buttons:
             but.destroy()
         self.buttons = []
-        self._print('\nStarting game with ' + enemy_name + '\n')
-        self.last_ping_time = time.time()
+        self.top_label.config(text='CONNECTED WITH\n' + enemy_name)
+        self.hide_button.config(text='DISCONNECT')
+
+        self._clear()
+        self._print('Starting game with ' + enemy_name + '\n')
 
         self.waiting_loop()
 
