@@ -198,7 +198,7 @@ class Master:
                 self.last_ping_time = msg['ts']
             return
         if msg['type'] == 'send':
-            self._print(time.localtime(msg['ts']), msg['data'])
+            self._print(time.ctime(msg['ts']).split()[3], msg['data'])
             self.main_client.message_stack.append(msg)
 
     def _print(self, *args, sep='\n'):
