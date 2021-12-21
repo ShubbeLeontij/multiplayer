@@ -52,17 +52,11 @@ class Client:
         self.client.unsubscribe(GENERAL_TOPIC)
         self.subscribe(self.game_topic)
 
-    def in_loop(self):
-        self.post(self.game_topic)
-        for msg in self.message_stack:
-            if msg['topic'] == self.game_topic and msg['data'] == self.enemy_name:
-                return True
-        return False
-
 
 class Master:
     def __init__(self):
         self.status = 'started'
+        self.last_ping_time = None
         self.buttons = []
         self.hide_button = None
         self.searching_client = None
@@ -150,9 +144,10 @@ class Master:
         if self.status != 'waiting':
             return
 
-        if self.searching_client.in_loop():
-            pass
-            #self.root.destroy()  # TODO
+        self.searching_client.post(self.searching_client.game_topic)
+        if time.time() - self.last_ping_time > 10:
+            print('lost connection')
+            self.root.destroy()
 
         self.root.after(1000, self.waiting_loop)
 
@@ -170,6 +165,9 @@ class Master:
 
     def on_searching_message(self, client, data, message):
         msg = json.loads(str(message.payload.decode("utf-8")))
+        if msg['type'] == 'ping' and self.status == 'waiting' and msg['client'] == self.searching_client.enemy_name:
+            self.last_ping_time = msg['ts']
+
         self._print(msg['data'])
         self.searching_client.message_stack.append(msg)
 
