@@ -43,6 +43,8 @@ class Client:
         self.client.on_message = func
 
     def create_connection(self, enemy_name):
+        self.message_stack = []
+
         random_string = ''.join(random.choices(string.ascii_lowercase, k=20))
         self.game_topic = GENERAL_TOPIC + '/' + random_string
         self.enemy_name = enemy_name
@@ -160,13 +162,16 @@ class Master:
             but.destroy()
         self.buttons = []
         self._print('\nStarting game with ' + enemy_name + '\n')
+        self.last_ping_time = time.time()
 
         self.waiting_loop()
 
     def on_searching_message(self, client, data, message):
         msg = json.loads(str(message.payload.decode("utf-8")))
+
         if msg['type'] == 'ping' and self.status == 'waiting' and msg['client'] == self.searching_client.enemy_name:
             self.last_ping_time = msg['ts']
+            return
 
         self._print(msg['data'])
         self.searching_client.message_stack.append(msg)
