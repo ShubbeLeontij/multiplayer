@@ -173,8 +173,9 @@ class Master:
         self.searching_client.message_stack.append(msg)
 
         data_list = msg['data'].split()
-        if data_list[0] == 'start' and data_list[2] == self.searching_client.name:
+        if len(data_list) == 4 and data_list[0] == 'start' and data_list[2] == self.searching_client.name:
             self.status = 'waiting'
+            self.searching_client.game_topic = data_list[3]
             self.connect(data_list[1])
 
     def _print(self, text, sep='\n'):
