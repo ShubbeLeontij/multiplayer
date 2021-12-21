@@ -54,6 +54,15 @@ class Client:
         self.client.unsubscribe(GENERAL_TOPIC)
         self.subscribe(self.game_topic)
 
+    def receive_connection(self, enemy_name, game_topic):
+        self.message_stack = []
+
+        self.enemy_name = enemy_name
+        self.game_topic = game_topic
+
+        self.client.unsubscribe(GENERAL_TOPIC)
+        self.subscribe(self.game_topic)
+
 
 class Master:
     def __init__(self):
@@ -153,8 +162,10 @@ class Master:
 
         self.root.after(1000, self.waiting_loop)
 
-    def connect(self, enemy_name):
-        if self.status != 'waiting':
+    def connect(self, enemy_name, game_topic=None):
+        if game_topic:
+            self.searching_client.receive_connection(enemy_name, game_topic)
+        else:
             self.searching_client.create_connection(enemy_name)
 
         self.status = 'waiting'
@@ -178,9 +189,7 @@ class Master:
         self.searching_client.message_stack.append(msg)
 
         if msg['type'] == 'start' and msg['data']['enemy_name'] == self.searching_client.name:
-            self.status = 'waiting'
-            self.searching_client.game_topic = msg['data']['game_topic']
-            self.connect(msg['data']['name'])
+            self.connect(msg['data']['name'], msg['data']['game_topic'])
 
     def _print(self, text, sep='\n'):
         if type(text) != str:
