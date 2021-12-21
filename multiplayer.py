@@ -179,6 +179,8 @@ class Master:
             self.connect(msg['data']['name'])
 
     def _print(self, text, sep='\n'):
+        if type(text) != str:
+            text = json.dumps(text)
         self.output_text.config(state=tkinter.NORMAL)
         self.output_text.insert(tkinter.END, sep + text)
         self.output_text.config(state=tkinter.DISABLED)
