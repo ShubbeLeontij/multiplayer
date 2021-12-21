@@ -70,13 +70,13 @@ class Master:
         self.last_ping_time = None
         self.buttons = []
         self.hide_button = None
-        self.searching_client = None
+        self.main_client = None
         self.top_label = None
 
         self.root = tkinter.Tk()
         self.root.geometry('400x400')
         self.root.resizable(tkinter.FALSE, tkinter.FALSE)
-        self.root.title('some title')
+        self.root.title('Title text')
 
         self.left_half = tkinter.Frame(self.root, bg='black')
         self.left_half.place(x=0, y=0, width=200, height=400)
@@ -85,15 +85,14 @@ class Master:
 
         self.name_field = tkinter.Entry(self.left_half, justify=tkinter.CENTER)
         self.name_field.place(x=10, y=10, width=180)
-        self.name_button = tkinter.Button(self.left_half, text='REVEAL MYSELF\nUSING THIS NAME', command=self.reveal)
+        self.name_button = tkinter.Button(self.left_half, text='Reveal myself\nusing this name', command=self.reveal)
         self.name_button.place(x=50, y=40, width=100, height=30)
         self.root.bind('<Return>', lambda event: self.reveal())
 
         self.output_text = tkinter.Text(self.right_half, bg='black', fg='red')
-        self.output_text.insert(tkinter.END, '---START LINE---')
-        self.output_text.config(state=tkinter.DISABLED)
+        self._clear()
         self.output_text.place(x=0, y=0, width=200, height=360)
-        self.clear_button = tkinter.Button(self.right_half, text='CLEAR', command=self._clear)
+        self.clear_button = tkinter.Button(self.right_half, text='Clear', command=self._clear)
         self.clear_button.place(x=50, y=360, width=100, height=30)
 
         self.silent_client = Client('')
@@ -115,15 +114,15 @@ class Master:
             self.silent_client.disconnect()
             self._clear()
 
-            self.top_label = tkinter.Label(self.left_half, text='AVAILABLE CONNECTIONS :', bg='black', fg='red')
+            self.top_label = tkinter.Label(self.left_half, text='Available connections :', bg='black', fg='red')
             self.top_label.place(x=0, y=10, width=200, height=30)
-            self.hide_button = tkinter.Button(self.left_half, text='HIDE MYSELF', command=self.root.destroy)  # TODO
+            self.hide_button = tkinter.Button(self.left_half, text='Hide myself', command=self.root.destroy)  # TODO
             self.hide_button.place(x=50, y=360, width=100, height=30)
 
-            self.searching_client = Client(name)
-            self.searching_client.subscribe(GENERAL_TOPIC)
-            self.searching_client.set_on_message(self.on_searching_message)
-            self.searching_client.set_on_connect(lambda client, data, flags, rc: self._print(
+            self.main_client = Client(name)
+            self.main_client.subscribe(GENERAL_TOPIC)
+            self.main_client.set_on_message(self.on_searching_message)
+            self.main_client.set_on_connect(lambda client, data, flags, rc: self._print(
                 name + " connected with code " + str(rc)))
 
             self.searching_loop()
@@ -132,22 +131,22 @@ class Master:
         if self.status != 'searching':
             return
 
-        self.searching_client.post(GENERAL_TOPIC)
+        self.main_client.post(GENERAL_TOPIC)
         for but in self.buttons:
             but.destroy()
         self.buttons = []
 
         cur_time = time.time()
         client_list = []
-        for msg in self.searching_client.message_stack:
+        for msg in self.main_client.message_stack:
             if msg['topic'] == GENERAL_TOPIC and cur_time - msg['ts'] < 2:
-                client_name = msg['data']
-                if client_name not in client_list and self.searching_client.name != client_name:
-                    client_list.append(client_name)
+                client = msg['data']
+                if client not in client_list and self.main_client.name != client:
+                    client_list.append(client)
 
-        for client_name in client_list:
-            self.buttons.append(tkinter.Button(self.left_half, text=client_name, command=lambda: self.connect(client_name)))
-            self.buttons[-1].place(x=50, y=50+client_list.index(client_name), width=100, height=30)
+        for client in client_list:
+            self.buttons.append(tkinter.Button(self.left_half, text=client, command=lambda: self.connect(client)))
+            self.buttons[-1].place(x=50, y=50+client_list.index(client), width=100, height=30)
 
         self.root.after(1000, self.searching_loop)
 
@@ -155,26 +154,28 @@ class Master:
         if self.status != 'waiting':
             return
 
-        self.searching_client.post(self.searching_client.game_topic)
+        self.main_client.post(self.main_client.game_topic)
+        self.main_client.post(self.main_client.game_topic, 'send', ''.join(random.choices(string.ascii_lowercase, k=9)))
         if time.time() - self.last_ping_time > 10:
-            print('lost connection')
+            print('Lost connection')
             self.root.destroy()
 
         self.root.after(1000, self.waiting_loop)
 
     def connect(self, enemy_name, game_topic=None):
         if game_topic:
-            self.searching_client.receive_connection(enemy_name, game_topic)
+            self.main_client.receive_connection(enemy_name, game_topic)
         else:
-            self.searching_client.create_connection(enemy_name)
+            self.main_client.create_connection(enemy_name)
+        self.main_client.set_on_message(self.on_waiting_message)
 
         self.status = 'waiting'
         self.last_ping_time = time.time()
         for but in self.buttons:
             but.destroy()
         self.buttons = []
-        self.top_label.config(text='CONNECTED WITH\n' + enemy_name)
-        self.hide_button.config(text='DISCONNECT')
+        self.top_label.config(text='Connected with\n' + enemy_name)
+        self.hide_button.config(text='Disconnect')
 
         self._clear()
         self._print('Starting game with ' + enemy_name + '\n')
@@ -184,28 +185,38 @@ class Master:
     def on_searching_message(self, client, data, message):
         msg = json.loads(str(message.payload.decode("utf-8")))
 
-        if msg['type'] == 'ping' and self.status == 'waiting':
-            if msg['client'] == self.searching_client.enemy_name:
-                self.last_ping_time = msg['ts']
-            return
-
         self._print(msg['data'])
-        self.searching_client.message_stack.append(msg)
-
-        if msg['type'] == 'start' and msg['data']['enemy_name'] == self.searching_client.name:
+        self.main_client.message_stack.append(msg)
+        if msg['type'] == 'start' and msg['data']['enemy_name'] == self.main_client.name:
             self.connect(msg['data']['name'], msg['data']['game_topic'])
 
-    def _print(self, text, sep='\n'):
-        if type(text) != str:
-            text = json.dumps(text)
+    def on_waiting_message(self, client, data, message):
+        msg = json.loads(str(message.payload.decode("utf-8")))
+
+        if msg['type'] == 'ping':
+            if msg['client'] == self.main_client.enemy_name:
+                self.last_ping_time = msg['ts']
+            return
+        if msg['type'] == 'send':
+            self._print(time.localtime(msg['ts']), msg['data'])
+            self.main_client.message_stack.append(msg)
+
+    def _print(self, *args, sep='\n'):
+        output_string = ''
+        for i in args:
+            if type(i) == int:
+                i = int(i)
+            elif type(i) != str:
+                i = json.dumps(i)
+            output_string += sep + i
         self.output_text.config(state=tkinter.NORMAL)
-        self.output_text.insert(tkinter.END, sep + text)
+        self.output_text.insert(tkinter.END, output_string)
         self.output_text.config(state=tkinter.DISABLED)
 
     def _clear(self):
         self.output_text.config(state=tkinter.NORMAL)
         self.output_text.delete(1.0, tkinter.END)
-        self.output_text.insert(tkinter.END, '---START LINE---')
+        self.output_text.insert(tkinter.END, '-------START-LINE-------')
         self.output_text.config(state=tkinter.DISABLED)
 
 
