@@ -23,10 +23,11 @@ class Client:
         self.client.connect(HOST, PORT, 60)
         self.client.loop_start()
 
-    def post(self, topic, data=None):
+    def post(self, topic, msg_type=None, data=None):
         if not data:
             data = self.name
-        msg = json.dumps({'client': self.name, 'topic': topic, 'ts': time.time(), 'data': data})
+            msg_type = 'ping'
+        msg = json.dumps({'client': self.name, 'topic': topic, 'ts': time.time(), 'type': msg_type, 'data': data})
         self.client.publish(topic, msg)
 
     def subscribe(self, topic):
@@ -46,8 +47,8 @@ class Client:
         self.game_topic = GENERAL_TOPIC + '/' + random_string
         self.enemy_name = enemy_name
 
-        start_string = 'start ' + self.name + ' ' + self.enemy_name + ' ' + self.game_topic
-        self.post(GENERAL_TOPIC, start_string)
+        data = {'name': self.name, 'enemy_name': self.enemy_name, 'game_topic': self.game_topic}
+        self.post(GENERAL_TOPIC, 'start', data)
         self.client.unsubscribe(GENERAL_TOPIC)
         self.subscribe(self.game_topic)
 
@@ -150,8 +151,8 @@ class Master:
             return
 
         if self.searching_client.in_loop():
-            self.status = 'in game'
-            self.root.destroy()  # TODO
+            pass
+            #self.root.destroy()  # TODO
 
         self.root.after(1000, self.waiting_loop)
 
@@ -172,11 +173,10 @@ class Master:
         self._print(msg['data'])
         self.searching_client.message_stack.append(msg)
 
-        data_list = msg['data'].split()
-        if len(data_list) == 4 and data_list[0] == 'start' and data_list[2] == self.searching_client.name:
+        if msg['type'] == 'start' and msg['data']['enemy_name'] == self.searching_client.name:
             self.status = 'waiting'
-            self.searching_client.game_topic = data_list[3]
-            self.connect(data_list[1])
+            self.searching_client.game_topic = msg['data']['game_topic']
+            self.connect(msg['data']['name'])
 
     def _print(self, text, sep='\n'):
         self.output_text.config(state=tkinter.NORMAL)
