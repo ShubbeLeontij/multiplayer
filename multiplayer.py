@@ -3,7 +3,6 @@ import time
 import random
 import string
 import tkinter
-import math
 import json
 
 HOST = 'broker.hivemq.com'
@@ -24,36 +23,6 @@ class Client:
         self.client.connect(HOST, PORT, 60)
         self.client.loop_start()
 
-    def mainloop_waiting(self):
-        if self.status != 'starting game':
-            return
-
-        self.post(self.game_topic)
-        for msg in self.message_stack:
-            if msg['topic'] == self.game_topic and msg['msg'] == self.enemy_name:
-                self.status = 'in game'
-                self.root.destroy()
-
-        self.root.after(1000, self.mainloop_waiting)
-
-    def connect(self, enemy_name):
-        self.status = 'starting game'
-        for but in self.buttons:
-            but.destroy()
-        self.buttons = []
-        tkinter.Label(self.root, text='Starting game with ' + enemy_name).pack(side=tkinter.TOP)
-
-        random_string = ''.join(random.choices(string.ascii_lowercase, k=20))
-        self.game_topic = GENERAL_TOPIC + '/' + random_string
-        self.enemy_name = enemy_name
-
-        start_string = 'start ' + self.name + ' ' + self.enemy_name + ' ' + self.game_topic
-        self.post(GENERAL_TOPIC, start_string)
-        self.client.unsubscribe(GENERAL_TOPIC)
-        self.subscribe(self.game_topic)
-
-        self.mainloop_waiting()
-
     def post(self, topic, data=None):
         if not data:
             data = self.name
@@ -71,6 +40,23 @@ class Client:
 
     def set_on_message(self, func):
         self.client.on_message = func
+
+    def create_connection(self, enemy_name):
+        random_string = ''.join(random.choices(string.ascii_lowercase, k=20))
+        self.game_topic = GENERAL_TOPIC + '/' + random_string
+        self.enemy_name = enemy_name
+
+        start_string = 'start ' + self.name + ' ' + self.enemy_name + ' ' + self.game_topic
+        self.post(GENERAL_TOPIC, start_string)
+        self.client.unsubscribe(GENERAL_TOPIC)
+        self.subscribe(self.game_topic)
+
+    def in_loop(self):
+        self.post(self.game_topic)
+        for msg in self.message_stack:
+            if msg['topic'] == self.game_topic and msg['data'] == self.enemy_name:
+                return True
+        return False
 
 
 class Master:
@@ -106,7 +92,7 @@ class Master:
 
         self.silent_client = Client('')
         self.silent_client.set_on_message(lambda client, data, msg: self._print(
-            str(msg.payload.decode("utf-8"))))
+            json.loads(str(msg.payload.decode("utf-8")))['data']))
         self.silent_client.set_on_connect(lambda client, data, flags, rc: self._print(
             "Connected with code " + str(rc)))
         self.silent_client.subscribe(GENERAL_TOPIC)
@@ -154,15 +140,42 @@ class Master:
                     client_list.append(client_name)
 
         for client_name in client_list:
-            self.buttons.append(tkinter.Button(self.left_half, text=client_name, command=self._clear))
+            self.buttons.append(tkinter.Button(self.left_half, text=client_name, command=lambda: self.connect(client_name)))
             self.buttons[-1].place(x=50, y=50+client_list.index(client_name), width=100, height=30)
 
         self.root.after(1000, self.searching_loop)
+
+    def waiting_loop(self):
+        if self.status != 'waiting':
+            return
+
+        if self.searching_client.in_loop():
+            self.status = 'in game'
+            self.root.destroy()  # TODO
+
+        self.root.after(1000, self.waiting_loop)
+
+    def connect(self, enemy_name):
+        if self.status != 'waiting':
+            self.searching_client.create_connection(enemy_name)
+
+        self.status = 'waiting'
+        for but in self.buttons:
+            but.destroy()
+        self.buttons = []
+        self._print('\nStarting game with ' + enemy_name + '\n')
+
+        self.waiting_loop()
 
     def on_searching_message(self, client, data, message):
         msg = json.loads(str(message.payload.decode("utf-8")))
         self._print(msg['data'])
         self.searching_client.message_stack.append(msg)
+
+        data_list = msg['data'].split()
+        if data_list[0] == 'start' and data_list[2] == self.searching_client.name:
+            self.status = 'waiting'
+            self.connect(data_list[1])
 
     def _print(self, text, sep='\n'):
         self.output_text.config(state=tkinter.NORMAL)
