@@ -91,7 +91,7 @@ class Master:
         self.name_button.place(x=40, y=40, width=120, height=50)
         self.root.bind('<Return>', lambda event: self.reveal())
 
-        self.output_text = tkinter.Text(self.right_half, bg='black', fg='red')
+        self.output_text = tkinter.Text(self.right_half, bg='black', fg='#20C20E')
         self._clear()
         self.output_text.place(x=0, y=0, width=200, height=360)
         self.clear_button = tkinter.Button(self.right_half, text='Clear', command=self._clear)
@@ -116,7 +116,7 @@ class Master:
             self.silent_client.disconnect()
             self._clear()
 
-            self.top_label = tkinter.Label(self.left_half, text='Available connections :', bg='black', fg='red')
+            self.top_label = tkinter.Label(self.left_half, text='Available connections :', bg='black', fg='#20C20E')
             self.top_label.place(x=0, y=10, width=200, height=30)
             self.hide_button = tkinter.Button(self.left_half, text='Hide myself', command=self.root.destroy)  # TODO
             self.hide_button.place(x=50, y=360, width=100, height=30)
@@ -186,7 +186,7 @@ class Master:
         self.hide_button.config(text='Disconnect')
 
         self._clear()
-        self._print(time.ctime(self.last_ping_time).split()[3] + '\nStarting chat with ' + enemy_name + '\n')
+        self._print('\nStarting chat with ' + enemy_name + '\n')
 
         self.waiting_loop()
 
@@ -208,10 +208,10 @@ class Master:
             self.main_client.message_stack.append(msg)
 
     def send_message(self):
-        self.main_client.post(self.main_client.game_topic, 'send', self.message_entry.get(1.0, tkinter.END))
+        self.main_client.post(self.main_client.game_topic, 'send', self.message_entry.get(1.0, 'end-1c'))
         self.message_entry.delete(1.0, tkinter.END)
 
-    def _print(self, *args, sep='\n'):
+    def _print(self, *args, sep='\n', end=''):
         output_string = ''
         for i in args:
             if type(i) == int:
@@ -220,13 +220,13 @@ class Master:
                 i = json.dumps(i)
             output_string += sep + i
         self.output_text.config(state=tkinter.NORMAL)
-        self.output_text.insert(tkinter.END, output_string)
+        self.output_text.insert(tkinter.END, output_string + end)
         self.output_text.config(state=tkinter.DISABLED)
 
     def _clear(self):
         self.output_text.config(state=tkinter.NORMAL)
         self.output_text.delete(1.0, tkinter.END)
-        self.output_text.insert(tkinter.END, '-------START-LINE-------')
+        self.output_text.insert(tkinter.END, time.ctime())
         self.output_text.config(state=tkinter.DISABLED)
 
 
