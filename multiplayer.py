@@ -208,14 +208,14 @@ class Master:
             self.last_ping_time = msg['ts']
         if msg['type'] == 'send' and msg['client']:
             self._print(time.ctime(msg['ts']).split()[3] + ' ' + msg['client'], msg['data'],
-                        end='\n', color='white' if msg['client'] == self.main_client.name else 'red')
+                        sep='\n', color='white' if msg['client'] == self.main_client.name else 'red')
             self.main_client.message_stack.append(msg)
 
     def send_message(self):
         self.main_client.post(self.main_client.game_topic, 'send', self.message_entry.get(1.0, 'end-1c'))
         self.message_entry.delete(1.0, tkinter.END)
 
-    def _print(self, *args, sep='\n', end='', color=HACKER_GREEN):
+    def _print(self, *args, sep='', end='\n', color=HACKER_GREEN):
         output_string = ''
         for i in args:
             if type(i) == int:
