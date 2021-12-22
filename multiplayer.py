@@ -78,7 +78,7 @@ class Master:
         self.root = tkinter.Tk()
         self.root.geometry('400x400')
         self.root.resizable(tkinter.FALSE, tkinter.FALSE)
-        self.root.title('Title text')
+        self.root.title('Hacker chat 1337')
 
         self.left_half = tkinter.Frame(self.root, bg='black')
         self.left_half.place(x=0, y=0, width=200, height=400)
@@ -157,7 +157,6 @@ class Master:
             return
 
         self.main_client.post(self.main_client.game_topic)
-        self.main_client.post(self.main_client.game_topic, 'send', ''.join(random.choices(string.ascii_lowercase, k=9)))
         if time.time() - self.last_ping_time > 10:
             print('Lost connection')
             self.root.destroy()
@@ -176,17 +175,18 @@ class Master:
         for but in self.buttons:
             but.destroy()
         self.buttons = []
-        self.message_entry = tkinter.Entry(self.left_half)
-        self.message_entry.place(x=10, y=100, width=180)
+        self.message_entry = tkinter.Text(self.left_half)
+        self.message_entry.place(x=10, y=60, width=180, height=100)
         self.send_button = tkinter.Button(self.left_half, text='Send', command=self.send_message)
-        self.send_button.place(x=10, y=130, width=180)
+        self.send_button.place(x=10, y=170, width=180)
         self.root.bind('<Return>', lambda event: self.send_message())
+        self.root.bind('<Shift-Return>', lambda event: None)
 
         self.top_label.config(text='Connected with\n' + enemy_name)
         self.hide_button.config(text='Disconnect')
 
         self._clear()
-        self._print('Starting game with ' + enemy_name + '\n')
+        self._print(time.ctime(self.last_ping_time).split()[3] + '\nStarting chat with ' + enemy_name + '\n')
 
         self.waiting_loop()
 
@@ -203,13 +203,13 @@ class Master:
 
         if msg['type'] == 'ping' and msg['client'] == self.main_client.enemy_name:
             self.last_ping_time = msg['ts']
-        if msg['type'] == 'send' and msg['client'] != self.main_client.name:
+        if msg['type'] == 'send' and msg['client']:
             self._print(time.ctime(msg['ts']).split()[3] + ' ' + msg['client'], msg['data'])
             self.main_client.message_stack.append(msg)
 
     def send_message(self):
-        self.main_client.post(self.main_client.game_topic, 'send', self.message_entry.get())
-        self.message_entry.delete(0, tkinter.END)
+        self.main_client.post(self.main_client.game_topic, 'send', self.message_entry.get(1.0, tkinter.END))
+        self.message_entry.delete(1.0, tkinter.END)
 
     def _print(self, *args, sep='\n'):
         output_string = ''
