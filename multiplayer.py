@@ -8,6 +8,7 @@ import json
 HOST = 'broker.hivemq.com'
 PORT = 1883
 GENERAL_TOPIC = 'uoplnwcxejughlufizpedofrzbnvkzwnsntdpuad'
+HACKER_GREEN = '#20C20E'
 
 
 class Client:
@@ -87,11 +88,12 @@ class Master:
 
         self.name_field = tkinter.Entry(self.left_half, justify=tkinter.CENTER)
         self.name_field.place(x=10, y=10, width=180)
+        self.name_field.focus()
         self.name_button = tkinter.Button(self.left_half, text='Reveal myself\nusing this name', command=self.reveal)
         self.name_button.place(x=40, y=40, width=120, height=50)
         self.root.bind('<Return>', lambda event: self.reveal())
 
-        self.output_text = tkinter.Text(self.right_half, bg='black', fg='#20C20E')
+        self.output_text = tkinter.Text(self.right_half, bg='black', fg=HACKER_GREEN)
         self._clear()
         self.output_text.place(x=0, y=0, width=200, height=360)
         self.clear_button = tkinter.Button(self.right_half, text='Clear', command=self._clear)
@@ -116,7 +118,7 @@ class Master:
             self.silent_client.disconnect()
             self._clear()
 
-            self.top_label = tkinter.Label(self.left_half, text='Available connections :', bg='black', fg='#20C20E')
+            self.top_label = tkinter.Label(self.left_half, text='Available connections :', bg='black', fg=HACKER_GREEN)
             self.top_label.place(x=0, y=10, width=200, height=30)
             self.hide_button = tkinter.Button(self.left_half, text='Hide myself', command=self.root.destroy)  # TODO
             self.hide_button.place(x=50, y=360, width=100, height=30)
@@ -177,6 +179,7 @@ class Master:
         self.buttons = []
         self.message_entry = tkinter.Text(self.left_half)
         self.message_entry.place(x=10, y=60, width=180, height=100)
+        self.message_entry.focus()
         self.send_button = tkinter.Button(self.left_half, text='Send', command=self.send_message)
         self.send_button.place(x=10, y=170, width=180)
         self.root.bind('<Return>', lambda event: self.send_message())
@@ -204,14 +207,15 @@ class Master:
         if msg['type'] == 'ping' and msg['client'] == self.main_client.enemy_name:
             self.last_ping_time = msg['ts']
         if msg['type'] == 'send' and msg['client']:
-            self._print(time.ctime(msg['ts']).split()[3] + ' ' + msg['client'], msg['data'])
+            self._print(time.ctime(msg['ts']).split()[3] + ' ' + msg['client'], msg['data'],
+                        end='\n', color='white' if msg['client'] == self.main_client.name else 'red')
             self.main_client.message_stack.append(msg)
 
     def send_message(self):
         self.main_client.post(self.main_client.game_topic, 'send', self.message_entry.get(1.0, 'end-1c'))
         self.message_entry.delete(1.0, tkinter.END)
 
-    def _print(self, *args, sep='\n', end=''):
+    def _print(self, *args, sep='\n', end='', color=HACKER_GREEN):
         output_string = ''
         for i in args:
             if type(i) == int:
@@ -219,8 +223,13 @@ class Master:
             elif type(i) != str:
                 i = json.dumps(i)
             output_string += sep + i
+
         self.output_text.config(state=tkinter.NORMAL)
+        start = self.output_text.index(tkinter.END)
+        tag = str(time.time())  # just random string
         self.output_text.insert(tkinter.END, output_string + end)
+        self.output_text.tag_add(tag,  start, tkinter.END)
+        self.output_text.tag_config(tag, foreground=color)
         self.output_text.config(state=tkinter.DISABLED)
 
     def _clear(self):
